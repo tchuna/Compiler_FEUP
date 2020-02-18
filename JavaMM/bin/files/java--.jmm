@@ -1,0 +1,46 @@
+class exemplo extends MainClass
+{
+    public static void main(String[] args)
+    {
+        int varEx;
+        int l;
+        boolean boolEx;
+        SomeClass classExp;
+        int[] array;
+        
+        varEx = array[0];
+        array[0] = 1;
+
+        varEx;
+
+        i = new int[1 + 2];
+        1 + 1;
+
+        l = boolEx.length;
+        boolEx = classExp.getBool(1);
+    }
+
+    public int ex(int i, int boolEx)
+    {
+        SomeClass c;
+
+        a[0] = 1;
+
+        while(i < 10)
+        {
+            1 - 2 - 3;
+        }
+
+        if(boolEx < 10 )
+        {
+
+            c = new SomeClass();
+        }
+        else
+        {
+            this.someFunc(1, boolEx);            
+        }
+
+        return 1;
+    }
+}

@@ -1,0 +1,16 @@
+class SyntaticError 
+{
+	public static void main(String[] args) 
+    {
+		int i = 10;
+        boolean b;
+
+        while(;)
+        {
+            i = 1;
+        }
+
+
+        
+	}
+}

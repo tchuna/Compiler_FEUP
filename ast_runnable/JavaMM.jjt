@@ -1,0 +1,340 @@
+options 
+{
+    LOOKAHEAD = 1;
+    ERROR_REPORTING = true;
+}
+
+PARSER_BEGIN(JavaMM)
+
+    import java.io.FileInputStream;
+
+    public class JavaMM
+    {
+        public static void main(String[] args) throws Exception
+        {
+            if(args.length < 1)
+            {
+                System.out.println("Usage: JavaMM <filename>");
+                System.exit(1);
+            }
+
+            JavaMM parser = new JavaMM(new FileInputStream(args[0]));
+            SimpleNode root = parser.Program();
+
+            System.out.println("-----AST-----");
+            root.dump(" ");
+            
+        }
+    }
+
+PARSER_END(JavaMM)
+
+SKIP :
+{
+    " " 
+    | "\r" 
+    | "\t"
+    | "\n"
+    | <"//" (~["\n","\r"])* ("\n" | "\r" | "\r\n")>
+    | <"/*" (~["*"])* "*" ("*" | ~["*","/"] (~["*"])* "*")* "/">
+}
+
+TOKEN:
+{
+    
+    <BOOL: "boolean">
+    | <MAIN: "main">
+    | <VOID: "void">
+    | <STRING: "String">
+    | <INT: ("int")>
+    | <LPAREN: "(">
+    | <RPAREN: ")">
+    | <LBRACK: "[">
+    | <RBRACK: "]">
+    | <LBRACE: "{">
+    | <RBRACE: "}">
+    | <ADD: "+">
+    | <SUB: "-">
+    | <MUL: "*">
+    | <DIV: "/">
+    | <NOT: "!">
+    | <EQUAL: "=">
+    | <LOWER: "<">
+    | <BIGGER: ">">
+    | <AND: "&&">
+    | <SEMI: ";">
+    | <COMMA: ",">
+    | <DOT: ".">
+    | <RETURN: "return">
+    | <PUBLIC: "public">
+    | <STAT: "static">
+    | <TRUE: "true">
+    | <FALSE: "false">
+    | <THIS: "this">
+    | <NEW: "new">
+    | <IF: "if">
+    | <ELSE: "else">
+    | <WHILE: "while">
+    | <CLASS: "class">
+    | <EXT: "extends">
+    | <LENGTH: "length">
+    | <LITERAL: (<INTEGER> | <BINARY> | <HEX> | <OCTAL>)>
+    | <OCTAL: "0"(["0"-"7"])+>
+    | <HEX: "0x"(["0"-"9", "A"-"F"])+>
+    | <BINARY: "0b"(["0"-"1"])+>
+    | <INTEGER: (<DIGIT>)+>
+    | <IDENTIFIER: <LETTER> (<LETTER> | <DIGIT>)*>
+    | <LETTER: ["$", "a"-"z", "A"-"Z", "_"]>
+    | <DIGIT: ["0"-"9"]>
+}
+
+SimpleNode Program(): {} 
+{
+    ClassDeclaration() <EOF> {return jjtThis;}
+}
+
+void ClassDeclaration() #Class: {Token n;}
+{
+    <CLASS>  n=<IDENTIFIER> {jjtThis.name = n.image;} [Extends()] 
+    <LBRACE> (VarDeclaration())* (<PUBLIC> (MainDeclaration() | Method()))* <RBRACE>
+}
+
+void Extends(): {Token n;}
+{
+    <EXT> n=<IDENTIFIER> {jjtThis.name = n.image;}
+}
+
+void VarDeclaration() #Var: {Token n; String t;}
+{
+    t=Type() {jjtThis.type = t;} n=<IDENTIFIER> {jjtThis.name = n.image;} <SEMI>  
+}
+
+void MainDeclaration() #Main: {Token n, t;}
+{
+    <STAT> <VOID> n=<MAIN> {jjtThis.name = n.image;} <LPAREN> <STRING> <LBRACK> <RBRACK> 
+    t=<IDENTIFIER> {jjtThis.type = t.image;} <RPAREN> 
+    <LBRACE>  (LOOKAHEAD(2) VarDeclaration())* (Statement())* <RBRACE>  
+}
+
+void Method(): {Token n; String r;}
+{
+    r=Type() {jjtThis.returnType = r;} n=<IDENTIFIER> {jjtThis.name = n.image;} <LPAREN> [Arg() 
+    (<COMMA> Arg())*] <RPAREN> <LBRACE> (LOOKAHEAD(2) VarDeclaration())* (Statement())*
+    Return() <SEMI> <RBRACE>
+}
+
+void Return(): {}
+{
+    <RETURN> Expression() 
+}
+
+void Arg(): {Token n; String t;}
+{
+    t=Type() {jjtThis.type = t;} n=<IDENTIFIER> {jjtThis.name = n.image;}
+}
+
+String Type() #void: {Token t, t1;}
+{
+    t=<INT> [<LBRACK> t1=<RBRACK> {return "int[]";}] {return t.image;}
+    | t=<BOOL> {return t.image;}
+    | t=<IDENTIFIER> {return t.image;}
+}
+
+void Statement() #void: {}
+{
+    <LBRACE> (Statement())* <RBRACE>
+    | While()
+    | If()
+    | Stmt()
+}
+
+void Stmt() #void: {}
+{
+    /*
+    LOOKAHEAD(2) lhs() <EQUAL> Expression() <SEMI> #EQUALS(2)
+    | Expression() <SEMI> */
+
+    lhs() [<EQUAL> Expression() #EQUALS(2)] <SEMI>
+    | Expression_NO_ID() <SEMI> 
+}
+
+void lhs() #TERM: {Token n;}
+{
+    n=<IDENTIFIER> {jjtThis.name = n.image;} [ArrayAccs() | Member()]
+}
+
+void While(): {}
+{
+    try
+    {
+        <WHILE> <LPAREN> Expression() <RPAREN> 
+    }
+    catch(ParseException e)
+    {
+        System.out.println(e.toString());
+
+        error_skip_to(RPAREN);
+    }
+
+    Then()
+}
+
+void If(): {}
+{
+    <IF> <LPAREN> Expression() <RPAREN> Then() Else()
+}
+
+void Else(): {}
+{
+    <ELSE> Statement()
+}
+
+void Then(): {}
+{
+    Statement()
+}
+
+void Member(): {Token n;}
+{
+    <DOT> 
+    (n=<LENGTH> {jjtThis.name = n.image;} | 
+    n=<IDENTIFIER> {jjtThis.name = n.image;} <LPAREN> [Expression() (<COMMA> Expression())*] <RPAREN>)
+}
+
+void ArrayAccs(): {}
+{
+    <LBRACK> Expression() <RBRACK>
+}
+
+void Expression() #void: {}
+{
+    EXPR() //As explained in Moodle, arrays in Java-- are only int arrays, thus having no members
+}
+
+void Expression_NO_ID() #void: {}
+{
+    EXPR_NO_ID()
+}
+
+void EXPR()  #void: {}
+{
+    EXPR_2() (<AND> EXPR_2() #AND(2))*   
+}
+
+void EXPR_NO_ID() #void: {}
+{
+    EXPR_2_NO_ID() (<AND> EXPR_2_NO_ID() #AND(2))*
+}
+
+void EXPR_2()  #void: {}
+{
+    EXPR_3() (<LOWER> EXPR_3() #LOWER(2))* 
+}
+
+void EXPR_2_NO_ID()  #void: {}
+{
+    EXPR_3_NO_ID() (<LOWER> EXPR_3_NO_ID() #LOWER(2))* 
+} 
+
+void EXPR_3()  #void: {}
+{
+    EXPR_4() (ADDSUB())*
+}
+
+void EXPR_3_NO_ID()  #void: {}
+{
+    EXPR_4_NO_ID() (ADDSUB_NO_ID())*
+}
+
+void ADDSUB() #void: {}
+{
+    <ADD> EXPR_4() #ADD(2)
+    | <SUB> EXPR_4() #SUB(2)
+}
+
+void ADDSUB_NO_ID() #void: {}
+{
+    <ADD> EXPR_4_NO_ID() #ADD(2)
+    | <SUB> EXPR_4_NO_ID() #SUB(2)
+}
+
+void EXPR_4() #void: {}
+{
+    EXPR_5() (MULDIV())*
+}
+
+void EXPR_4_NO_ID() #void: {}
+{
+    EXPR_5_NO_ID() (MULDIV_NO_ID())*
+}
+
+void MULDIV() #void: {}
+{
+    <MUL> EXPR_5() #MUL(2)
+    | <DIV> EXPR_5() #DIV(2)
+}
+
+void MULDIV_NO_ID() #void: {}
+{
+    <MUL> EXPR_5_NO_ID() #MUL(2)
+    | <DIV> EXPR_5_NO_ID() #DIV(2)
+}
+
+void EXPR_5() #void: {}
+{
+    EXPR_6()
+    | <NOT> EXPR_6() #NOT(1)
+}
+
+void EXPR_5_NO_ID() #void: {}
+{
+    EXPR_6_NO_ID()
+    | <NOT> EXPR_6_NO_ID() #NOT(1)
+}
+
+void EXPR_6() #TERM: {Token t, n; Boolean b = false;}
+{
+    ([<SUB> {b = true;}] t=<LITERAL> {jjtThis.name = t.image; if(b) jjtThis.name = "-" + jjtThis.name;}
+    | t=<THIS> {jjtThis.name = t.image;} 
+    | t=<TRUE> {jjtThis.name = t.image;}
+    | t=<FALSE> {jjtThis.name = t.image;}
+    | t=<IDENTIFIER> {jjtThis.name = t.image;}
+    | <LPAREN> Expression() #ENCLOSED_EXPR <RPAREN>
+    | NEW())
+    [EXPR_7()]
+}
+
+void EXPR_6_NO_ID() #TERM: {Token t, n; Boolean b = false;}
+{
+    ([<SUB> {b = true;}] t=<LITERAL> {jjtThis.name = t.image; if(b) jjtThis.name = "-" + jjtThis.name;}
+    | t=<THIS> {jjtThis.name = t.image;} 
+    | t=<TRUE> {jjtThis.name = t.image;}
+    | t=<FALSE> {jjtThis.name = t.image;}
+    | <LPAREN> Expression() #ENCLOSED_EXPR <RPAREN>
+    | NEW())
+    [EXPR_7()]
+}
+
+void EXPR_7() #void: {}
+{
+    ArrayAccs() 
+    | Member()
+}
+
+void NEW(): {Token n;}
+{
+    <NEW> (n=<IDENTIFIER> {jjtThis.type = n.image;} <LPAREN> <RPAREN> 
+        | n=<INT> {jjtThis.type = "int[]";} ArrayAccs())
+}
+
+JAVACODE
+void error_skip_to(int kind) #void
+{
+    Token t;
+
+    do 
+    {
+      t = getNextToken();
+    } 
+    while (t.kind != kind);
+}

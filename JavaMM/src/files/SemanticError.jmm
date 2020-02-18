@@ -1,0 +1,20 @@
+class SemanticError
+{
+	public static void main(String[] args) 
+    {
+		int i;
+        boolean b;
+
+        i = 10 + true;
+        b = true;
+
+        this.someFunc(i, 2);
+	}
+
+    public boolean someFunc(int i, int i2)
+    {
+        i = i2;
+
+        return true;
+    }
+}

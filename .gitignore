@@ -1,0 +1,7 @@
+/JavaMM/src/ast/*.class
+/JavaMM/src/compiler/*.class
+/JavaMM/src/symbol/*.class
+/JavaMM/.settings
+/JavaMM/bin/compiler/*.class
+/JavaMM/src/*.bat
+/JavaMM/bin/*.bat
